@@ -1,0 +1,36 @@
+{
+  "auth": {
+    "login_success": "تم تسجيل الدخول بنجاح",
+    "login_failed": "فشل تسجيل الدخول",
+    "invalid_credentials": "بيانات اعتماد غير صحيحة",
+    "unauthorized": "غير مصرح",
+    "token_expired": "انتهت صلاحية الرمز",
+    "logout_success": "تم تسجيل الخروج بنجاح"
+  },
+  "sas": {
+    "created": "تم إنشاء نظام SAS بنجاح",
+    "updated": "تم تحديث نظام SAS بنجاح",
+    "deleted": "تم حذف نظام SAS بنجاح",
+    "not_found": "نظام SAS غير موجود",
+    "connection_failed": "فشل الاتصال بنظام SAS"
+  },
+  "users": {
+    "created": "تم إنشاء المستخدم بنجاح",
+    "updated": "تم تحديث المستخدم بنجاح",
+    "deleted": "تم حذف المستخدم بنجاح",
+    "not_found": "المستخدم غير موجود",
+    "already_exists": "المستخدم موجود بالفعل"
+  },
+  "validation": {
+    "required": "الحقل مطلوب",
+    "invalid_email": "البريد الإلكتروني غير صحيح",
+    "min_length": "الحد الأدنى للطول هو {length} أحرف",
+    "max_length": "الحد الأقصى للطول هو {length} أحرف"
+  },
+  "errors": {
+    "internal_server_error": "خطأ في الخادم الداخلي",
+    "bad_request": "طلب غير صحيح",
+    "not_found": "غير موجود",
+    "forbidden": "محظور"
+  }
+}

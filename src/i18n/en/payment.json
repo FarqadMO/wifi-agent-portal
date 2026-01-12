@@ -1,0 +1,19 @@
+{
+  "messages": {
+    "created": "Payment created successfully",
+    "retrieved": "Payment retrieved successfully",
+    "listRetrieved": "Payments list retrieved successfully",
+    "statusRetrieved": "Payment status checked successfully",
+    "refunded": "Payment refunded successfully",
+    "cancelled": "Payment cancelled successfully"
+  },
+  "errors": {
+    "createFailed": "Failed to create payment: {reason}",
+    "notFound": "Payment not found",
+    "cannotRefund": "Cannot refund this payment. Payment must be completed",
+    "refundFailed": "Failed to refund payment: {reason}",
+    "cannotCancel": "Cannot cancel this payment. Payment must be pending",
+    "cancelFailed": "Failed to cancel payment: {reason}",
+    "unsupportedMethod": "Unsupported payment method: {method}"
+  }
+}

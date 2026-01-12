@@ -1,0 +1,36 @@
+{
+  "auth": {
+    "login_success": "Login successful",
+    "login_failed": "Login failed",
+    "invalid_credentials": "Invalid credentials",
+    "unauthorized": "Unauthorized",
+    "token_expired": "Token expired",
+    "logout_success": "Logout successful"
+  },
+  "sas": {
+    "created": "SAS system created successfully",
+    "updated": "SAS system updated successfully",
+    "deleted": "SAS system deleted successfully",
+    "not_found": "SAS system not found",
+    "connection_failed": "Failed to connect to SAS system"
+  },
+  "users": {
+    "created": "User created successfully",
+    "updated": "User updated successfully",
+    "deleted": "User deleted successfully",
+    "not_found": "User not found",
+    "already_exists": "User already exists"
+  },
+  "validation": {
+    "required": "Field is required",
+    "invalid_email": "Invalid email address",
+    "min_length": "Minimum length is {length} characters",
+    "max_length": "Maximum length is {length} characters"
+  },
+  "errors": {
+    "internal_server_error": "Internal server error",
+    "bad_request": "Bad request",
+    "not_found": "Not found",
+    "forbidden": "Forbidden"
+  }
+}

@@ -1,0 +1,319 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ========================================
+// SYSTEM USERS (INTERNAL USERS)
+// ========================================
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  username  String   @unique @db.VarChar(100)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255) // bcrypt hashed
+  firstName String?  @map("first_name") @db.VarChar(100)
+  lastName  String?  @map("last_name") @db.VarChar(100)
+  phone     String?  @db.VarChar(50)
+  isActive  Boolean  @default(true) @map("is_active")
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy String?   @map("created_by") @db.Uuid
+
+  // Relations
+  userRoles        UserRole[]
+  refreshTokens    RefreshToken[]
+  auditLogs        AuditLog[]
+  sasSystemCreated SasSystem[]    @relation("SasSystemCreator")
+
+  @@index([username])
+  @@index([email])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+// ========================================
+// AGENTS (EXTERNAL USERS FROM SAS)
+// ========================================
+model Agent {
+  id                String   @id @default(uuid()) @db.Uuid
+  username          String   @unique @db.VarChar(100)
+  encryptedPassword String   @map("encrypted_password") @db.Text // AES encrypted, NOT hashed
+  firstName         String?  @map("first_name") @db.VarChar(100)
+  lastName          String?  @map("last_name") @db.VarChar(100)
+  email             String?  @db.VarChar(255)
+  phone             String?  @db.VarChar(50)
+  
+  // SAS Relation
+  sasSystemId       String   @map("sas_system_id") @db.Uuid
+  sasSystem         SasSystem @relation(fields: [sasSystemId], references: [id])
+  
+  // SAS Token Management (for reuse)
+  sasManagerId           Int?      @map("sas_manager_id") // Agent's ID in SAS system
+  encryptedSasToken      String?   @map("encrypted_sas_token") @db.Text // AES encrypted SAS token
+  sasTokenExpiresAt      DateTime? @map("sas_token_expires_at") // When the SAS token expires
+  
+  isActive          Boolean  @default(true) @map("is_active")
+  lastLoginAt       DateTime? @map("last_login_at")
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relations
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+  paymentTransactions PaymentTransaction[]
+
+  @@index([username])
+  @@index([sasSystemId])
+  @@index([deletedAt])
+  @@map("agents")
+}
+
+// ========================================
+// SAS RADIUS SYSTEMS CONFIGURATION
+// ========================================
+model SasSystem {
+  id                      String   @id @default(uuid()) @db.Uuid
+  name                    String   @unique @db.VarChar(255)
+  baseUrl                 String   @map("base_url") @db.VarChar(500)
+  
+  // Admin Integration User (ENCRYPTED)
+  adminUsername           String   @map("admin_username") @db.VarChar(255)
+  adminEncryptedPassword  String   @map("admin_encrypted_password") @db.Text // AES encrypted
+  
+  sslEnabled              Boolean  @default(true) @map("ssl_enabled")
+  group                   SasGroup @default(WIFI)
+  status                  SasStatus @default(ACTIVE)
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  creator   User?     @relation("SasSystemCreator", fields: [createdBy], references: [id])
+
+  // Relations
+  agents    Agent[]
+  auditLogs AuditLog[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("sas_systems")
+}
+
+enum SasGroup {
+  WIFI
+  FTTH
+}
+
+enum SasStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ========================================
+// RBAC - ROLES
+// ========================================
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  isSystem    Boolean  @default(false) @map("is_system") // System roles cannot be deleted
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relations
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@index([name])
+  @@index([deletedAt])
+  @@map("roles")
+}
+
+// ========================================
+// RBAC - PERMISSIONS
+// ========================================
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(100) // e.g., sas.create, sas.update
+  module      String   @db.VarChar(50) // e.g., sas, audit, users
+  description String?  @db.Text
+  
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  rolePermissions RolePermission[]
+
+  @@index([module])
+  @@index([name])
+  @@map("permissions")
+}
+
+// ========================================
+// RBAC - USER ROLES (Many-to-Many)
+// ========================================
+model UserRole {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// ========================================
+// RBAC - ROLE PERMISSIONS (Many-to-Many)
+// ========================================
+model RolePermission {
+  id           String @id @default(uuid()) @db.Uuid
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+  
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// ========================================
+// JWT REFRESH TOKENS
+// ========================================
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique @db.Text
+  
+  // Polymorphic relation - either user or agent
+  userId    String?  @map("user_id") @db.Uuid
+  agentId   String?  @map("agent_id") @db.Uuid
+  
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  expiresAt DateTime @map("expires_at")
+  isRevoked Boolean  @default(false) @map("is_revoked")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([token])
+  @@index([userId])
+  @@index([agentId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ========================================
+// AUDIT LOGS
+// ========================================
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+  
+  // User tracking (polymorphic - system user or agent)
+  userId       String?   @map("user_id") @db.Uuid
+  agentId      String?   @map("agent_id") @db.Uuid
+  agentUsername String?  @map("agent_username") @db.VarChar(100)
+  
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  agent Agent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  
+  // SAS System reference
+  sasSystemId String?    @map("sas_system_id") @db.Uuid
+  sasSystem   SasSystem? @relation(fields: [sasSystemId], references: [id], onDelete: SetNull)
+  
+  // Action details
+  action      String     @db.VarChar(100) // e.g., LOGIN_SUCCESS, SAS_CREATE, WALLET_TOPUP
+  entity      String?    @db.VarChar(100) // e.g., User, SasSystem, Agent
+  entityId    String?    @map("entity_id") @db.Uuid
+  
+  // Changes tracking
+  oldValue    Json?      @map("old_value")
+  newValue    Json?      @map("new_value")
+  
+  // Request metadata
+  ipAddress   String?    @map("ip_address") @db.VarChar(50)
+  userAgent   String?    @map("user_agent") @db.Text
+  correlationId String?  @map("correlation_id") @db.Uuid
+  
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([agentId])
+  @@index([sasSystemId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@index([correlationId])
+  @@map("audit_logs")
+}
+
+// ========================================
+// PAYMENT TRANSACTIONS
+// ========================================
+model PaymentTransaction {
+  id              String   @id @default(uuid()) @db.Uuid
+  
+  // Payment identifiers
+  transactionId   String   @unique @map("transaction_id") @db.VarChar(255) // Gateway payment ID
+  referenceId     String   @unique @map("reference_id") @db.VarChar(255) // Our request ID
+  
+  // Payment details
+  amount          Float
+  currency        String   @db.VarChar(10)
+  status          String   @db.VarChar(50) // pending, completed, failed, cancelled, refunded
+  paymentMethod   String   @map("payment_method") @db.VarChar(50) // qi_card, etc.
+  serviceType     String   @map("service_type") @db.VarChar(100) // agent_top_up, user_activation
+  
+  // Agent reference
+  agentId         String   @map("agent_id") @db.Uuid
+  agent           Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  // Gateway URLs
+  gatewayUrl      String?  @map("gateway_url") @db.Text
+  callbackUrl     String?  @map("callback_url") @db.Text
+  notificationUrl String?  @map("notification_url") @db.Text
+  
+  // Payment details and metadata
+  paymentDetails  Json?    @map("payment_details") // Full response from gateway
+  metadata        Json?    // Additional custom data
+  
+  // Processing info
+  processedAt     DateTime? @map("processed_at")
+  failureReason   String?   @map("failure_reason") @db.Text
+  
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([agentId])
+  @@index([status])
+  @@index([paymentMethod])
+  @@index([serviceType])
+  @@index([createdAt])
+  @@index([transactionId])
+  @@index([referenceId])
+  @@map("payment_transactions")
+}
