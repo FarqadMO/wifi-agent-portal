@@ -71,6 +71,4 @@ services:
       QI_CALLBACK_TOKEN: ${QI_CALLBACK_TOKEN}
       QI_PUBLIC_KEY_PATH: ${QI_PUBLIC_KEY_PATH}
 
-    networks:
-      dev-network: {}
 
