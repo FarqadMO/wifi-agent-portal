@@ -73,5 +73,5 @@ services:
 
     networks:
       dev-network:
-        external: true
+        driver: bridge
 
