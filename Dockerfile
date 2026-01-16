@@ -43,10 +43,6 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y chromium libreoffice --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
 # Expose port and set environment
 EXPOSE 8000
 ENV PORT=8000
