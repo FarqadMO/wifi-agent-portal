@@ -1,28 +1,4 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: wifiagent-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: wifiagentportal
-    ports:
-      - '5432:5432'
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - wifiagent-network
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # NestJS API
   api:
     build:
       context: .
@@ -32,31 +8,68 @@ services:
     ports:
       - '3000:3000'
     environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wifiagentportal?schema=public
+      # DATABASE CONFIGURATION
+      DATABASE_URL: ${DATABASE_URL}
+
+      # JWT CONFIGURATION
       JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN}
+
+      # ENCRYPTION CONFIGURATION
       SAS_ENCRYPTION_KEY: ${SAS_ENCRYPTION_KEY}
-      PORT: 3000
-      API_PREFIX: api/v1
-      SWAGGER_ENABLED: 'true'
-    depends_on:
-      postgres:
-        condition: service_healthy
+
+      # APPLICATION CONFIGURATION
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${PORT}
+      API_PREFIX: ${API_PREFIX}
+
+      # CORS CONFIGURATION
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      CORS_METHODS: ${CORS_METHODS}
+      CORS_CREDENTIALS: ${CORS_CREDENTIALS}
+
+      # RATE LIMITING
+      THROTTLE_TTL: ${THROTTLE_TTL}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT}
+
+      # LOGGING CONFIGURATION
+      LOG_LEVEL: ${LOG_LEVEL}
+      LOG_DIR: ${LOG_DIR}
+
+      # SWAGGER CONFIGURATION
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED}
+      SWAGGER_TITLE: ${SWAGGER_TITLE}
+      SWAGGER_DESCRIPTION: ${SWAGGER_DESCRIPTION}
+      SWAGGER_VERSION: ${SWAGGER_VERSION}
+      SWAGGER_PATH: ${SWAGGER_PATH}
+
+      # SAS SYSTEM DEFAULTS
+      SAS_REQUEST_TIMEOUT: ${SAS_REQUEST_TIMEOUT}
+      SAS_MAX_RETRIES: ${SAS_MAX_RETRIES}
+      SAS_RETRY_DELAY: ${SAS_RETRY_DELAY}
+
+      # PAYMENT GATEWAY VARIABLES
+      APP_URL: ${APP_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      PAYMENT_SUCCESS_URL: ${PAYMENT_SUCCESS_URL}
+      PAYMENT_FAILURE_URL: ${PAYMENT_FAILURE_URL}
+      PAYMENT_CANCEL_URL: ${PAYMENT_CANCEL_URL}
+
+      QI_USERNAME_TEST: ${QI_USERNAME_TEST}
+      QI_PASSWORD_TEST: ${QI_PASSWORD_TEST}
+      QI_X_TERMINAL_ID_TEST: ${QI_X_TERMINAL_ID_TEST}
+
+      QI_USERNAME_PROD: ${QI_USERNAME_PROD}
+      QI_PASSWORD_PROD: ${QI_PASSWORD_PROD}
+      QI_X_TERMINAL_ID_PROD: ${QI_X_TERMINAL_ID_PROD}
+
+      QI_CURRENCY: ${QI_CURRENCY}
+      QI_URL: ${QI_URL}
+      QI_IS_PRODUCTION: ${QI_IS_PRODUCTION}
+      QI_CALLBACK_TOKEN: ${QI_CALLBACK_TOKEN}
+      QI_PUBLIC_KEY_PATH: ${QI_PUBLIC_KEY_PATH}
+
     networks:
-      - wifiagent-network
-    volumes:
-      - ./logs:/app/logs
-    command: >
-      sh -c "
-        npx prisma migrate deploy &&
-        node dist/main
-      "
-
-networks:
-  wifiagent-network:
-    driver: bridge
-
-volumes:
-  postgres_data:
-    driver: local
+      - dev-network

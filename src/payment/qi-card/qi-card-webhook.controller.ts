@@ -83,7 +83,53 @@ export class QiCardWebhookController {
         paymentId,
       );
 
-      // Redirect based on status
+      // Check current payment status from gateway to ensure we have latest status
+      if (payment.status === 'pending') {
+        this.logger.log(
+          `Payment still pending, checking status with QiCard: ${paymentId}`,
+        );
+        
+        try {
+          // Get fresh status from QiCard
+          const statusResult = await this.qiCardGateway.getPaymentStatus(paymentId);
+          
+          if (statusResult.success && statusResult.status !== payment.status) {
+            this.logger.log(
+              `Status updated from QiCard: ${payment.status} -> ${statusResult.status}`,
+            );
+            
+            // Process the webhook to update payment and trigger top-up if successful
+            await this.paymentService.processWebhook(paymentId, {
+              paymentId: paymentId,
+              status: statusResult.status === 'completed' ? 'SUCCESS' : statusResult.status.toUpperCase(),
+              amount: statusResult.amount,
+              currency: statusResult.currency,
+              details: statusResult.details,
+            });
+            
+            // Get updated payment
+            const updatedPayment = await this.paymentService.getPaymentByTransactionId(paymentId);
+            
+            // Redirect based on updated status
+            if (updatedPayment.status === 'completed') {
+              res.redirect(
+                `${process.env.FRONTEND_URL}/payment/success?paymentId=${updatedPayment.id}`,
+              );
+              return;
+            } else if (updatedPayment.status === 'failed') {
+              res.redirect(
+                `${process.env.FRONTEND_URL}/payment/failed?paymentId=${updatedPayment.id}`,
+              );
+              return;
+            }
+          }
+        } catch (statusError: any) {
+          this.logger.error(`Failed to check payment status: ${statusError.message}`);
+          // Continue with existing status
+        }
+      }
+
+      // Redirect based on current status
       if (status === 'SUCCESS' || payment.status === 'completed') {
         res.redirect(
           `${process.env.FRONTEND_URL}/payment/success?paymentId=${payment.id}`,
@@ -119,6 +165,13 @@ export class QiCardWebhookController {
   @ApiResponse({
     status: 200,
     description: 'Notification processed successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: { type: 'string', example: 'Notification processed successfully' },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
@@ -138,7 +191,7 @@ export class QiCardWebhookController {
       }
 
       this.logger.log(
-        `QiCard notification received for payment: ${payload.paymentId}`,
+        `QiCard notification webhook received for payment: ${payload.paymentId} with status: ${payload.status}`,
       );
 
       // Get signature from headers
@@ -161,11 +214,11 @@ export class QiCardWebhookController {
         throw new BadRequestException('Invalid signature');
       }
 
-      // Process notification
+      // Process notification webhook - this will update payment status and trigger agent wallet top-up if successful
       await this.paymentService.processWebhook(payload.paymentId, payload);
 
       this.logger.log(
-        `QiCard notification processed successfully for: ${payload.paymentId}`,
+        `✅ QiCard notification processed successfully for: ${payload.paymentId}`,
       );
 
       return {
@@ -173,7 +226,7 @@ export class QiCardWebhookController {
         message: 'Notification processed successfully',
       };
     } catch (error: any) {
-      this.logger.error(`Notification processing error: ${error.message}`);
+      this.logger.error(`❌ Notification processing error: ${error.message}`);
       throw new BadRequestException(error.message);
     }
   }

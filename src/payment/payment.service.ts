@@ -415,11 +415,23 @@ export class PaymentService {
       return;
     }
 
+    this.logger.log(
+      `Processing webhook for payment: ${paymentId}, current status: ${payment.status}`,
+    );
+
     // Process webhook with appropriate gateway
     const gateway = this.getPaymentGateway(payment.paymentMethod as PaymentMethod);
     const result = await gateway.processWebhookNotification(webhookData);
 
     if (result.shouldUpdateDatabase) {
+      // Check if payment was already completed to prevent duplicate processing
+      if (payment.status === PaymentStatus.COMPLETED && result.status === PaymentStatus.COMPLETED) {
+        this.logger.log(
+          `Payment ${paymentId} already completed, skipping duplicate webhook processing`,
+        );
+        return;
+      }
+
       await this.updatePaymentStatus(
         payment.id,
         result.status,
@@ -428,6 +440,9 @@ export class PaymentService {
 
       // If payment is completed, top up agent wallet
       if (result.status === PaymentStatus.COMPLETED) {
+        this.logger.log(
+          `🎯 Payment completed via webhook, triggering top-up for payment: ${paymentId}`,
+        );
         await this.processSuccessfulPayment(payment);
       }
     }
@@ -441,6 +456,15 @@ export class PaymentService {
 
       // Only process agent top-ups (not other service types)
       if (payment.serviceType === ServiceType.AGENT_TOP_UP) {
+        // Check if top-up was already completed to prevent duplicate processing
+        const metadata = payment.metadata as any;
+        if (metadata?.topUpCompleted) {
+          this.logger.log(
+            `Top-up already completed for payment: ${payment.id}, skipping duplicate processing`,
+          );
+          return;
+        }
+
         // Extract transaction ID from metadata
         const transactionId = payment.metadata?.transactionId || payment.transactionId;
 
