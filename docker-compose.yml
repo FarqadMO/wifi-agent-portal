@@ -72,4 +72,6 @@ services:
       QI_PUBLIC_KEY_PATH: ${QI_PUBLIC_KEY_PATH}
 
     networks:
-      - dev-network
+      dev-network:
+        external: true
+
