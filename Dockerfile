@@ -1,50 +1,53 @@
-# ========================================
 # Build stage
-# ========================================
 FROM node:20 AS builder
 
-# Install pnpm
-RUN npm install -g pnpm
+# Set working directory
 WORKDIR /app
 
-# Install dependencies
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+# Copy package files first (cache dependencies)
+COPY package.json yarn.lock* ./
 
-# Copy source code
+# Install ALL dependencies (including devDependencies for build)
+RUN yarn install --frozen-lockfile
+
+# Copy all source files
 COPY . .
 
 # Generate Prisma Client
-RUN npx prisma generate
+RUN yarn prisma generate
 
-# Build application
-RUN pnpm run build
-RUN ls -la /app/dist   # Debug: confirm build produced dist
+# Build your app
+RUN yarn run build
 
-# ========================================
 # Production stage
-# ========================================
-FROM node:20 AS production
+FROM node:20
 
-RUN npm install -g pnpm
+# Set environment variables
+ENV NODE_ENV=production
+ARG DATABASE_URL
+
+# Set working directory
 WORKDIR /app
 
-# Copy package files and install only prod deps
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod
+# Copy package files
+COPY package.json yarn.lock* ./
 
-# Copy build artifacts from builder
+# Install only production dependencies
+RUN yarn install --frozen-lockfile --production
+
+# Copy built application from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Create logs folder
-RUN mkdir -p /app/logs
+# Install system dependencies
+RUN apt-get update && apt-get install -y chromium libreoffice --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV NODE_ENV=production
-EXPOSE 3000
+# Expose port and set environment
+EXPOSE 8000
+ENV PORT=8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/v1/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
-CMD ["node", "dist/main"]
+# Start the app
+CMD ["node", "dist/src/main.js"]
