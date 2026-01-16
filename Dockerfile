@@ -10,8 +10,9 @@ COPY package.json yarn.lock* ./
 # Install ALL dependencies (including devDependencies for build)
 RUN yarn install --frozen-lockfile
 
-# Copy all source files
+# Copy source files and prisma config
 COPY . .
+COPY prisma.config.ts ./
 
 # Generate Prisma Client
 RUN yarn prisma generate
@@ -38,6 +39,7 @@ RUN yarn install --frozen-lockfile --production
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
