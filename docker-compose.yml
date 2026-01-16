@@ -45,8 +45,6 @@ services:
       QI_PUBLIC_KEY_PATH: ${QI_PUBLIC_KEY_PATH}
     volumes:
       - ./logs:/app/logs
-    depends_on:
-      - postgres
 
 # Note: we don't define networks in compose; connect manually in Portainer UI
 
